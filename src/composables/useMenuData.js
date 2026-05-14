@@ -1,5 +1,5 @@
 import { onMounted, ref } from 'vue'
-import { fetchCategories, fetchFoods } from '../data/foods'
+import api from '@/api'
 
 export function useMenuData() {
   const categories = ref([])
@@ -12,15 +12,15 @@ export function useMenuData() {
     error.value = ''
 
     try {
-      const [categoryResults, foodResults] = await Promise.all([
-        fetchCategories(),
-        fetchFoods(),
+      const [categoryRes, foodRes] = await Promise.all([
+        api.get('/catalog/categories'),
+        api.get('/catalog/foods'),
       ])
 
-      categories.value = categoryResults
-      foods.value = foodResults
+      categories.value = categoryRes.data
+      foods.value = foodRes.data
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to load menu data.'
+      error.value = err.response?.data?.message || 'Menyuni yuklashda xatolik yuz berdi.'
     } finally {
       loading.value = false
     }

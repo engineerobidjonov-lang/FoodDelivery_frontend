@@ -1,5 +1,5 @@
 <script setup>
-import { useCartStore } from '../store/cart'
+import { useCartStore } from '@/store/cart'
 
 const props = defineProps({
   item: {
@@ -9,25 +9,54 @@ const props = defineProps({
 })
 
 const cartStore = useCartStore()
+
+const formatPrice = (price) => {
+  return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " so'm"
+}
 </script>
 
 <template>
-  <article class="flex flex-col gap-4 rounded-3xl border border-orange-100 bg-white p-4 shadow-float sm:flex-row sm:items-center">
-    <img :src="props.item.imageUrl" :alt="props.item.name" class="h-24 w-full rounded-2xl object-cover sm:w-28" />
-
-    <div class="min-w-0 flex-1">
-      <h3 class="text-lg font-semibold text-slate-900">{{ props.item.name }}</h3>
-      <p class="mt-1 text-sm text-slate-500">${{ props.item.price }} each</p>
+  <article class="flex flex-col gap-6 rounded-[32px] bg-white p-6 shadow-float sm:flex-row sm:items-center">
+    <!-- Image -->
+    <div class="h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl">
+      <img :src="item.image" :alt="item.name" class="h-full w-full object-cover" />
     </div>
 
-    <div class="flex items-center gap-3">
-      <div class="flex items-center rounded-full bg-orange-50 p-1">
-        <button class="h-9 w-9 rounded-full text-lg font-semibold text-slate-700 transition hover:bg-white" @click="cartStore.updateQuantity(props.item.id, props.item.quantity - 1)">-</button>
-        <span class="w-10 text-center text-sm font-semibold text-slate-900">{{ props.item.quantity }}</span>
-        <button class="h-9 w-9 rounded-full text-lg font-semibold text-slate-700 transition hover:bg-white" @click="cartStore.updateQuantity(props.item.id, props.item.quantity + 1)">+</button>
+    <!-- Info -->
+    <div class="min-w-0 flex-1">
+      <h3 class="text-xl font-black text-slate-900 line-clamp-1">{{ item.name }}</h3>
+      <p class="mt-1 text-sm font-bold text-orange-500">{{ formatPrice(item.price) }}</p>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center justify-between gap-6">
+      <div class="flex items-center gap-4 rounded-2xl bg-gray-50 p-2">
+        <button 
+          @click="cartStore.updateQuantity(item.id, item.quantity - 1)"
+          class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xl font-bold shadow-sm transition hover:bg-orange-500 hover:text-white"
+        >
+          -
+        </button>
+        <span class="w-8 text-center font-black text-slate-900">{{ item.quantity }}</span>
+        <button 
+          @click="cartStore.updateQuantity(item.id, item.quantity + 1)"
+          class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xl font-bold shadow-sm transition hover:bg-orange-500 hover:text-white"
+        >
+          +
+        </button>
       </div>
 
-      <p class="w-20 text-right text-base font-bold text-orange-600">${{ props.item.price * props.item.quantity }}</p>
+      <div class="flex flex-col items-end min-w-[120px]">
+        <span class="text-xs font-bold uppercase tracking-widest text-gray-400">Jami</span>
+        <p class="text-lg font-black text-slate-900">{{ formatPrice(item.price * item.quantity) }}</p>
+      </div>
+
+      <button 
+        @click="cartStore.removeFromCart(item.id)"
+        class="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500 transition hover:bg-red-500 hover:text-white"
+      >
+        🗑️
+      </button>
     </div>
   </article>
 </template>

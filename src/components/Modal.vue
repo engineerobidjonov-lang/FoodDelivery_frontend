@@ -6,8 +6,16 @@ const props = defineProps({
   },
   title: {
     type: String,
-    default: 'Modal',
+    default: '',
   },
+  maxWidth: {
+    type: String,
+    default: 'max-w-md',
+  },
+  subtitle: {
+    type: String,
+    default: '',
+  }
 })
 
 const emit = defineEmits(['close'])
@@ -15,19 +23,36 @@ const emit = defineEmits(['close'])
 
 <template>
   <Teleport to="body">
-    <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
-      <div v-if="props.open" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4" @click.self="emit('close')">
-        <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="text-sm uppercase tracking-[0.25em] text-orange-500">Seller Contact</p>
-              <h3 class="mt-2 text-2xl font-bold text-slate-900">{{ props.title }}</h3>
-            </div>
-            <button class="rounded-full bg-orange-50 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-orange-100" @click="emit('close')">
-              Close
-            </button>
+    <transition 
+      enter-active-class="transition duration-300 ease-out" 
+      enter-from-class="opacity-0 scale-95" 
+      enter-to-class="opacity-100 scale-100" 
+      leave-active-class="transition duration-200 ease-in" 
+      leave-from-class="opacity-100 scale-100" 
+      leave-to-class="opacity-0 scale-95"
+    >
+      <div v-if="props.open" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <!-- Overlay -->
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="emit('close')"></div>
+        
+        <!-- Modal Content -->
+        <div :class="['relative w-full overflow-hidden rounded-[40px] bg-white p-0 shadow-2xl', props.maxWidth]">
+          <!-- Close Button (Absolute) -->
+          <button 
+            @click="emit('close')"
+            class="absolute right-6 top-6 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors shadow-sm"
+          >
+            ✕
+          </button>
+
+          <div v-if="props.title" class="p-8 pb-0">
+            <p v-if="props.subtitle" class="text-xs font-black uppercase tracking-[0.2em] text-orange-500">{{ props.subtitle }}</p>
+            <h3 class="mt-1 text-2xl font-black text-slate-900">{{ props.title }}</h3>
           </div>
-          <slot />
+          
+          <div class="p-0">
+            <slot />
+          </div>
         </div>
       </div>
     </transition>

@@ -1,8 +1,22 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
+import { useNotificationStore } from './notification'
 
 export const useCartStore = defineStore('cart', () => {
-  const items = ref([])
+  const notificationStore = useNotificationStore()
+  
+  // Load initial state from localStorage if exists
+  const items = ref(JSON.parse(localStorage.getItem('cart_items')) || [])
+  const address = ref(localStorage.getItem('user_address') || '')
+
+  // Sync state to localStorage whenever it changes
+  watch(items, (newItems) => {
+    localStorage.setItem('cart_items', JSON.stringify(newItems))
+  }, { deep: true })
+
+  watch(address, (newAddress) => {
+    localStorage.setItem('user_address', newAddress)
+  })
 
   const itemCount = computed(() =>
     items.value.reduce((count, item) => count + item.quantity, 0),
@@ -17,10 +31,12 @@ export const useCartStore = defineStore('cart', () => {
 
     if (existingItem) {
       existingItem.quantity += 1
+      notificationStore.addNotification(`${food.name} soni oshirildi`)
       return
     }
 
     items.value.push({ ...food, quantity: 1 })
+    notificationStore.addNotification(`${food.name} savatga qo'shildi`)
   }
 
   function updateQuantity(id, nextQuantity) {
@@ -36,15 +52,21 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   function removeFromCart(id) {
-    items.value = items.value.filter((item) => item.id !== id)
+    const item = items.value.find(i => i.id === id)
+    if (item) {
+      items.value = items.value.filter((i) => i.id !== id)
+      notificationStore.addNotification(`${item.name} savatdan olib tashlandi`, 'info')
+    }
   }
 
   function clearCart() {
     items.value = []
+    notificationStore.addNotification(`Savat tozalandi`, 'info')
   }
 
   return {
     items,
+    address,
     itemCount,
     totalPrice,
     addToCart,

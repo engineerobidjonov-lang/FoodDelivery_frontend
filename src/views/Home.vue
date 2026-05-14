@@ -1,94 +1,170 @@
 <script setup>
-import { RouterLink } from 'vue-router'
-import FoodCard from '../components/FoodCard.vue'
-import { useMenuData } from '../composables/useMenuData'
+import { useRouter, RouterLink } from 'vue-router'
+import { ref, computed } from 'vue'
+import { useAuthStore } from '@/store/auth'
+import { useUiStore } from '@/store/ui'
+import FoodCard from '@/components/FoodCard.vue'
+import FoodCardSkeleton from '@/components/FoodCardSkeleton.vue'
+import Modal from '@/components/Modal.vue'
+import { useMenuData } from '@/composables/useMenuData'
 
+const router = useRouter()
+const authStore = useAuthStore()
+const uiStore = useUiStore()
 const { categories, foods, loading, error, reload } = useMenuData()
 
-function getFoodsByCategory(categoryName) {
-  return foods.value.filter(
-    (food) => food.category.toLowerCase() === categoryName.toLowerCase(),
+const searchQuery = ref('')
+const isContactModalOpen = ref(false)
+
+const restaurantContacts = computed(() => {
+  return categories.value.map(cat => ({
+    name: cat.name,
+    phone: cat.sellerPhone || '+998 71 200 10 10',
+    icon: getCategoryIcon(cat.name)
+  }))
+})
+
+const getCategoryIcon = (name) => {
+  const icons = {
+    'National': '🍲',
+    'Seafood': '🐟',
+    'Fast Food': '🍔'
+  }
+  return icons[name] || '🍽️'
+}
+
+const filteredCategories = computed(() => {
+  if (!searchQuery.value) return categories.value
+  
+  const query = searchQuery.value.toLowerCase()
+  return categories.value.filter(category => {
+    const hasMatchingFood = foods.value.some(food => 
+      food.category.toLowerCase() === category.name.toLowerCase() &&
+      food.name.toLowerCase().includes(query)
+    )
+    return category.name.toLowerCase().includes(query) || hasMatchingFood
+  })
+})
+
+const getFilteredFoods = (categoryName) => {
+  const query = searchQuery.value.toLowerCase()
+  return foods.value.filter(f => 
+    f.category.toLowerCase() === categoryName.toLowerCase() &&
+    (!query || f.name.toLowerCase().includes(query))
   )
+}
+
+const callRestaurant = (phone) => {
+  window.location.href = `tel:${phone.replace(/\s/g, '')}`
 }
 </script>
 
 <template>
-  <section class="space-y-10">
-    <div class="grid gap-6 overflow-hidden rounded-[2rem] bg-hero px-6 py-10 text-white shadow-float lg:grid-cols-[1.15fr_0.85fr] lg:px-10">
-      <div class="space-y-6">
-        <p class="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em]">
-          Fast customer ordering
-        </p>
-        <div class="space-y-3">
-          <h1 class="max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
-            Discover bold flavors and order your next meal in minutes.
-          </h1>
-          <p class="max-w-xl text-sm text-orange-50 sm:text-base">
-            Browse curated dishes across traditional, seafood, and fast food menus. Add favorites, review your cart, and set your delivery location with a clean customer flow.
-          </p>
-        </div>
-        <div class="flex flex-wrap gap-3">
-          <RouterLink
-            v-for="category in categories"
-            :key="category.id"
-            :to="`/category/${category.name}`"
-            class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-orange-100"
+  <div class="min-h-screen bg-white dark:bg-slate-900 pb-24 -mt-6 transition-colors">
+    <!-- Sub Header with Menu and Welcome -->
+    <div class="bg-white dark:bg-slate-800 px-4 py-6 border-b border-gray-100 dark:border-slate-700 rounded-b-[40px] shadow-sm">
+      <div class="max-w-7xl mx-auto flex justify-between items-center">
+        <div class="flex items-center gap-4">
+          <button 
+            @click="uiStore.openSidebar" 
+            class="h-12 w-12 flex items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-700 text-2xl hover:bg-orange-50 dark:hover:bg-slate-600 transition-colors"
           >
-            Explore {{ category.name }}
+            ☰
+          </button>
+          <div>
+            <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Xayrli kun!</p>
+            <h1 class="text-xl font-black text-slate-900 dark:text-slate-100">
+              Xush Keldingiz, <span class="text-orange-500">{{ authStore.user?.name || 'Mehmon' }}</span>
+            </h1>
+          </div>
+        </div>
+        <button 
+          @click="isContactModalOpen = true" 
+          class="h-12 w-12 flex items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-700 text-2xl hover:bg-orange-50 dark:hover:bg-slate-600 transition-colors"
+        >
+          📞
+        </button>
+      </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-4 mt-8">
+      <!-- Search Bar -->
+      <div class="relative mb-10 group max-w-2xl mx-auto">
+        <div class="absolute left-6 top-1/2 -translate-y-1/2 text-2xl opacity-20 group-focus-within:opacity-100 transition-opacity">
+          🔍
+        </div>
+        <input 
+          v-model="searchQuery"
+          type="text"
+          placeholder="Qanday taomlarni hush ko‘rasiz?"
+          class="w-full py-6 px-16 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-[30px] shadow-float border-2 border-transparent focus:border-orange-500 focus:ring-0 transition-all font-bold text-lg"
+        />
+        <button 
+          v-if="searchQuery"
+          @click="searchQuery = ''"
+          class="absolute right-6 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Categories & Foods Grid -->
+      <section v-for="category in filteredCategories" :key="category.id" class="mb-12">
+        <div class="flex justify-between items-end mb-6">
+          <div>
+            <h2 class="text-3xl font-black text-slate-900 dark:text-slate-100">{{ category.name }}</h2>
+            <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Eng sara {{ category.name.toLowerCase() }} taomlari</p>
+          </div>
+          <RouterLink :to="`/category/${category.name}`" class="text-orange-500 font-bold hover:underline flex items-center gap-1">
+            Hammasi <span class="text-lg">→</span>
           </RouterLink>
         </div>
+
+        <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <FoodCardSkeleton v-for="i in 4" :key="i" />
+        </div>
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <FoodCard 
+            v-for="food in getFilteredFoods(category.name).slice(0, 4)" 
+            :key="food.id" 
+            :item="food" 
+          />
+        </div>
+      </section>
+
+      <div v-if="error" class="text-center py-10">
+        <p class="text-red-500 mb-4">{{ error }}</p>
+        <button @click="reload" class="bg-orange-500 text-white px-6 py-2 rounded-full">Qayta yuklash</button>
       </div>
 
-      <div class="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-        <div
-          v-for="category in categories"
-          :key="`${category.id}-panel`"
-          class="rounded-3xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm"
+      <div v-if="filteredCategories.length === 0" class="text-center py-20">
+        <p class="text-slate-500 dark:text-slate-400 text-lg">Hech narsa topilmadi 😕</p>
+      </div>
+    </main>
+
+    <!-- Contact Selection Modal -->
+    <Modal :open="isContactModalOpen" title="Bog'lanish" @close="isContactModalOpen = false">
+      <div class="space-y-4">
+        <button 
+          v-for="contact in restaurantContacts" 
+          :key="contact.name"
+          @click="callRestaurant(contact.phone)"
+          class="group w-full flex items-center justify-between p-5 rounded-3xl bg-slate-50 dark:bg-slate-800 hover:bg-orange-500 transition-all active:scale-95"
         >
-          <p class="text-xs uppercase tracking-[0.25em] text-orange-100">{{ category.name }}</p>
-          <p class="mt-2 text-sm text-white/85">{{ category.subtitle }}</p>
-        </div>
+          <div class="flex items-center gap-4">
+            <span class="text-3xl bg-white dark:bg-slate-700 h-14 w-14 flex items-center justify-center rounded-2xl shadow-sm group-hover:scale-110 transition-transform">
+              {{ contact.icon }}
+            </span>
+            <div class="text-left">
+              <p class="text-sm font-bold text-slate-500 dark:text-slate-400 group-hover:text-orange-100 uppercase tracking-widest">Restoran</p>
+              <p class="text-lg font-black text-slate-900 dark:text-slate-100 group-hover:text-white">{{ contact.name }}</p>
+            </div>
+          </div>
+          <div class="h-10 w-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-700 text-orange-500 group-hover:bg-white group-hover:text-orange-500">
+            📞
+          </div>
+        </button>
       </div>
-    </div>
-
-    <div v-if="error" class="rounded-3xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-      <p>Menu data could not be loaded.</p>
-      <button class="mt-3 rounded-2xl bg-slate-900 px-4 py-2 font-semibold text-white transition hover:bg-slate-700" @click="reload">
-        Retry
-      </button>
-    </div>
-
-    <section v-for="category in categories" :key="category.id" class="space-y-4">
-      <div class="flex items-end justify-between gap-4">
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-[0.3em] text-orange-500">{{ category.name }}</p>
-          <h2 class="mt-2 text-2xl font-bold text-slate-900">{{ category.subtitle }}</h2>
-        </div>
-        <RouterLink
-          :to="`/category/${category.name}`"
-          class="rounded-full border border-orange-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-500 hover:text-orange-600"
-        >
-          View all
-        </RouterLink>
-      </div>
-
-      <div v-if="loading" class="hide-scrollbar flex gap-4 overflow-x-auto pb-2">
-        <div v-for="index in 3" :key="index" class="min-w-[280px] animate-pulse rounded-3xl bg-white p-4 shadow-float">
-          <div class="h-48 rounded-2xl bg-orange-100"></div>
-          <div class="mt-4 h-5 rounded bg-orange-100"></div>
-          <div class="mt-3 h-10 rounded-2xl bg-orange-100"></div>
-        </div>
-      </div>
-
-      <div v-else class="hide-scrollbar flex gap-5 overflow-x-auto pb-2">
-        <div
-          v-for="item in getFoodsByCategory(category.name).slice(0, 5)"
-          :key="item.id"
-          class="min-w-[280px] max-w-[280px]"
-        >
-          <FoodCard :item="item" />
-        </div>
-      </div>
-    </section>
-  </section>
+    </Modal>
+  </div>
 </template>

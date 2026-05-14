@@ -1,146 +1,180 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { fetchAddresses, detectLocation as detectLocationApi, saveAddress as saveAddressApi } from '../data/location'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useCartStore } from '@/store/cart'
 
-const addressStr = ref('')
-const savedAddresses = ref([])
-const detectedInfo = ref(null)
-const loading = ref(false)
-const error = ref('')
+const route = useRoute()
+const router = useRouter()
+const cartStore = useCartStore()
+const isOrdered = ref(false)
 
-async function loadAddresses() {
-  try {
-    savedAddresses.value = await fetchAddresses()
-  } catch (err) {
-    console.error('Failed to load addresses:', err)
+onMounted(() => {
+  if (route.query.status === 'delivering' && cartStore.address) {
+    isOrdered.value = true
   }
+})
+
+// If user navigates to location without status, show input form
+watch(() => route.query.status, (newStatus) => {
+  if (newStatus === 'delivering' && cartStore.address) {
+    isOrdered.value = true
+  } else {
+    isOrdered.value = false
+  }
+})
+
+const processOrder = () => {
+  if (!cartStore.address) {
+    alert('Iltimos, manzilni kiriting!')
+    return
+  }
+  isOrdered.value = true
 }
 
-async function detectLocation() {
-  loading.value = true
-  error.value = ''
-  try {
-    const data = await detectLocationApi()
-    detectedInfo.value = data
-    addressStr.value = `${data.address.street}, ${data.address.city}, ${data.address.region}`
-  } catch (err) {
-    error.value = 'Could not detect location. Please try manually.'
-  } finally {
-    loading.value = false
-  }
+const callCourier = () => (window.location.href = 'tel:+998991234567')
+
+const backToHome = () => {
+  cartStore.clearCart()
+  router.push('/')
 }
-
-async function saveAddress() {
-  if (!addressStr.value) return
-  
-  // Simple parsing for mock purposes
-  const parts = addressStr.value.split(',').map(s => s.trim())
-  const payload = {
-    label: 'New Address',
-    street: parts[0] || '',
-    city: parts[1] || 'San Francisco',
-    region: parts[2] || 'CA',
-    postalCode: parts[3] || '94103'
-  }
-
-  try {
-    await saveAddressApi(payload)
-    await loadAddresses()
-    alert('Address saved successfully!')
-  } catch (err) {
-    alert('Failed to save address: ' + err.message)
-  }
-}
-
-const estimate = computed(() => (detectedInfo.value ? detectedInfo.value.estimate : '25-35 minutes'))
-
-onMounted(loadAddresses)
 </script>
 
 <template>
-  <section class="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-    <div class="space-y-6 rounded-[2rem] bg-white p-8 shadow-float">
+  <div class="max-w-xl mx-auto p-4 text-center min-h-screen flex flex-col pb-20 transition-colors">
+    <!-- Address Input Form -->
+    <div v-if="!isOrdered" class="mt-10 flex-1">
+      <div class="mb-8">
+        <div class="text-6xl mb-4">📍</div>
+        <h1 class="text-4xl font-black text-slate-900 dark:text-white mb-2 leading-tight">Yetkazib berish manzili</h1>
+        <p class="text-slate-500 dark:text-slate-400">Buyurtmangizni qayerga yetkazaylik?</p>
+      </div>
+      
+      <div class="space-y-6">
+        <div class="relative group">
+          <input 
+            v-model="cartStore.address"
+            type="text"
+            placeholder="Masalan: Chilonzor 9-kvartal, 12-uy"
+            class="w-full py-5 px-8 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-float rounded-[30px] border-2 border-transparent focus:border-orange-500 focus:ring-0 transition-all font-bold text-lg"
+          />
+          <span class="absolute right-6 top-1/2 -translate-y-1/2 text-2xl opacity-30">🏠</span>
+        </div>
+
+        <!-- Fake Map UI -->
+        <div class="h-72 bg-slate-50 dark:bg-slate-800 rounded-[40px] shadow-inner flex flex-col items-center justify-center border border-gray-100 dark:border-slate-700 overflow-hidden relative">
+          <!-- Background Grid / Streets -->
+          <div class="absolute inset-0 opacity-20 dark:opacity-10" style="background-image: radial-gradient(circle, #94a3b8 1px, transparent 1px); background-size: 30px 30px;"></div>
+          <svg class="absolute inset-0 h-full w-full opacity-30 dark:opacity-20" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 50h600M0 150h600M0 250h600M100 0v400M300 0v400M500 0v400" stroke="currentColor" stroke-width="2" class="text-slate-400" fill="none" />
+            <!-- Route Path -->
+            <path d="M80 80 L150 80 L150 180 L350 180 L350 250 L420 250" stroke="#f97316" stroke-width="4" stroke-dasharray="8 6" fill="none" class="animate-[dash_20s_linear_infinite]" />
+          </svg>
+
+          <!-- Markers -->
+          <div class="absolute top-16 left-16 group pointer-events-none">
+            <div class="bg-white dark:bg-slate-900 h-10 w-10 rounded-2xl shadow-lg flex items-center justify-center text-xl border-2 border-orange-500 transform -translate-x-1/2 -translate-y-1/2">🍔</div>
+            <div class="absolute top-6 left-0 text-[10px] font-black text-orange-600 bg-white/90 dark:bg-slate-900/90 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap -translate-x-1/2 uppercase tracking-tighter">Restoran</div>
+          </div>
+
+          <div class="absolute bottom-16 right-16 pointer-events-none">
+            <div class="bg-white dark:bg-slate-900 h-12 w-12 rounded-2xl shadow-xl flex items-center justify-center text-2xl border-2 border-slate-900 dark:border-white transform -translate-x-1/2 -translate-y-1/2">🏠</div>
+            <div class="absolute top-8 left-0 text-[10px] font-black text-slate-900 dark:text-white bg-white/90 dark:bg-slate-900/90 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap -translate-x-1/2 uppercase tracking-tighter">Manzil</div>
+          </div>
+
+          <!-- Courier Marker with Animation -->
+          <div class="absolute top-[180px] left-[250px] animate-[pulse_2s_infinite] pointer-events-none">
+            <div class="bg-orange-500 h-10 w-10 rounded-full shadow-orange-500/50 shadow-xl flex items-center justify-center text-xl border-2 border-white transform -translate-x-1/2 -translate-y-1/2">🛵</div>
+            <div class="absolute -top-10 left-0 bg-slate-900 text-white text-[10px] font-black px-3 py-1 rounded-xl shadow-lg whitespace-nowrap -translate-x-1/2 flex items-center gap-1">
+              <span>12 min</span>
+              <span class="opacity-40">|</span>
+              <span>1.8 km</span>
+            </div>
+          </div>
+
+          <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-4 py-1.5 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm">
+            <p class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none">Toshkent, O'zbekiston</p>
+          </div>
+        </div>
+
+        <button 
+          @click="processOrder"
+          :disabled="!cartStore.address"
+          class="w-full bg-slate-900 dark:bg-orange-600 text-white py-5 rounded-[24px] font-black text-xl shadow-xl transition-all active:scale-95 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 disabled:shadow-none hover:bg-orange-500"
+        >
+          Manzilni tasdiqlash
+        </button>
+      </div>
+    </div>
+
+    <!-- Order Status / Delivery View -->
+    <div v-else class="mt-16 space-y-8 animate-in fade-in zoom-in duration-500">
+      <div class="relative inline-block">
+        <div class="text-9xl animate-bounce">🛵</div>
+        <div class="absolute -right-4 -bottom-2 text-4xl animate-pulse">💨</div>
+      </div>
+      
       <div>
-        <p class="text-sm font-semibold uppercase tracking-[0.3em] text-orange-500">Delivery location</p>
-        <h1 class="mt-2 text-4xl font-black text-slate-900">Set your address</h1>
-        <p class="mt-3 text-slate-500">
-          Enter a delivery address manually or use the mock location detector to preview delivery timing.
-        </p>
+        <h2 class="text-4xl font-black text-slate-900 dark:text-white">Yo‘lga chiqdik!</h2>
+        <p class="text-slate-500 dark:text-slate-400 mt-2 font-medium">Kuryerimiz buyurtmangizni olib kelmoqda</p>
       </div>
 
-      <div v-if="savedAddresses.length" class="space-y-3">
-        <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Saved Addresses</p>
-        <div class="flex flex-wrap gap-2">
-          <button
-            v-for="addr in savedAddresses"
-            :key="addr.id"
-            class="rounded-2xl border border-orange-100 bg-orange-50/50 px-4 py-2 text-sm text-slate-700 transition hover:bg-orange-100"
-            @click="addressStr = `${addr.street}, ${addr.city}, ${addr.region}`"
-          >
-            {{ addr.label }}: {{ addr.street }}
-          </button>
+      <div class="bg-white dark:bg-slate-800 p-8 rounded-[40px] shadow-float border border-gray-100 dark:border-slate-700 relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-2 bg-slate-100 dark:bg-slate-700">
+          <div class="h-full bg-orange-500 animate-[progress_15s_infinite_linear]"></div>
+        </div>
+        
+        <div class="flex justify-between items-center mb-6">
+          <div class="text-left">
+            <p class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Kutilayotgan vaqt</p>
+            <p class="text-3xl font-black text-orange-500">15-25 DAQIQA</p>
+          </div>
+          <div class="h-14 w-14 bg-orange-50 dark:bg-orange-900/20 rounded-2xl flex items-center justify-center text-3xl">⏳</div>
+        </div>
+
+        <div class="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl text-left">
+          <div class="h-10 w-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-xl shadow-sm">📍</div>
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Yetkazish manzili</p>
+            <p class="font-bold text-slate-700 dark:text-slate-200 truncate">{{ cartStore.address }}</p>
+          </div>
         </div>
       </div>
 
-      <label class="block">
-        <span class="mb-2 block text-sm font-semibold text-slate-700">Address</span>
-        <input
-          v-model="addressStr"
-          type="text"
-          placeholder="Street, City, Region, Zip..."
-          class="w-full rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 outline-none transition focus:border-orange-400"
-        />
-      </label>
-
-      <div class="flex flex-wrap gap-3">
+      <div class="grid grid-cols-2 gap-4">
         <button 
-          class="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-orange-500 disabled:opacity-50" 
-          :disabled="loading"
-          @click="detectLocation"
+          @click="callCourier"
+          class="bg-white dark:bg-slate-800 border-2 border-gray-100 dark:border-slate-700 text-slate-900 dark:text-white py-5 rounded-[24px] font-black text-lg flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
         >
-          {{ loading ? 'Detecting...' : 'Detect Location' }}
+          <span>📞</span> Bog'lanish
         </button>
         <button 
-          class="rounded-2xl border border-orange-200 px-5 py-3 font-semibold text-slate-700 transition hover:border-orange-500 hover:text-orange-600"
-          @click="saveAddress"
+          @click="backToHome"
+          class="bg-slate-900 dark:bg-orange-600 text-white py-5 rounded-[24px] font-black text-lg hover:bg-orange-500 transition-all shadow-lg active:scale-95"
         >
-          Save Address
+          Asosiyga qaytish
         </button>
       </div>
-
-      <div v-if="error" class="text-sm text-red-500">{{ error }}</div>
-
-      <div class="rounded-3xl bg-orange-50 p-5">
-        <p class="text-sm font-semibold uppercase tracking-[0.25em] text-orange-500">Estimated delivery time</p>
-        <p class="mt-2 text-3xl font-black text-slate-900">{{ estimate }}</p>
-      </div>
     </div>
-
-    <div class="overflow-hidden rounded-[2rem] bg-white shadow-float">
-      <div class="flex items-center justify-between border-b border-orange-100 px-6 py-5">
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-[0.25em] text-orange-500">Map preview</p>
-          <p class="mt-1 text-slate-500">UI placeholder for delivery zone</p>
-        </div>
-        <span class="rounded-full bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600">Active route</span>
-      </div>
-
-      <div class="relative h-[430px] overflow-hidden bg-gradient-to-br from-orange-100 via-amber-50 to-white">
-        <div class="absolute inset-0 opacity-40" style="background-image: radial-gradient(circle at 1px 1px, #fb923c 1px, transparent 0); background-size: 32px 32px;"></div>
-        <div class="absolute left-[18%] top-[22%] h-24 w-24 rounded-full bg-orange-200/60 blur-2xl"></div>
-        <div class="absolute bottom-[18%] right-[16%] h-28 w-28 rounded-full bg-amber-200/70 blur-2xl"></div>
-        <div class="absolute left-[22%] top-[58%] h-4 w-52 rotate-12 rounded-full bg-slate-300/70"></div>
-        <div class="absolute left-[42%] top-[26%] h-4 w-64 -rotate-6 rounded-full bg-slate-300/70"></div>
-        <div class="absolute left-[30%] top-[35%] flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-sm font-bold uppercase tracking-[0.2em] text-white shadow-xl">
-          Pin
-        </div>
-        <div class="absolute bottom-6 left-6 rounded-3xl bg-white/90 p-4 shadow-lg backdrop-blur">
-          <p class="text-xs uppercase tracking-[0.25em] text-orange-500">Current drop-off</p>
-          <p class="mt-2 max-w-xs text-sm font-medium text-slate-700">
-            {{ addressStr || 'No address selected yet. Use Detect Location to populate a sample address.' }}
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
+  </div>
 </template>
+
+<style scoped>
+@keyframes progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+@keyframes dash {
+  from { stroke-dashoffset: 200; }
+  to { stroke-dashoffset: 0; }
+}
+
+.animate-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>

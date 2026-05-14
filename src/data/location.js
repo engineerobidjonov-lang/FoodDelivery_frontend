@@ -1,32 +1,19 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+export async function fetchAddresses() {
+  return Promise.resolve([
+    { id: 1, street: 'Amir Temur ko\'chasi, 12', city: 'Toshkent' },
+    { id: 2, street: 'Mustaqillik shoh ko\'chasi, 45', city: 'Toshkent' }
+  ])
+}
 
-async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+export async function saveAddress(payload) {
+  console.log('Mock Address Saved:', payload)
+  return Promise.resolve({ success: true })
+}
+
+export async function detectLocation() {
+  return Promise.resolve({
+    city: 'Toshkent',
+    region: 'Toshkent shahri',
+    address: 'Chilonzor, 9-kvartal'
   })
-
-  if (!response.ok) {
-    throw new Error(`API request failed with status ${response.status}`)
-  }
-
-  return response.json()
-}
-
-export function fetchAddresses() {
-  return request('/addresses')
-}
-
-export function saveAddress(payload) {
-  return request('/addresses', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
-}
-
-export function detectLocation() {
-  return request('/location/detect')
 }

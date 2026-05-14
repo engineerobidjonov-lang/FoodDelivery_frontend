@@ -1,5 +1,8 @@
 <script setup>
-import { useCartStore } from '../store/cart'
+import { ref } from 'vue'
+import { useCartStore } from '@/store/cart'
+import { useFavoriteStore } from '@/store/favorites'
+import Modal from '@/components/Modal.vue'
 
 const props = defineProps({
   item: {
@@ -9,30 +12,128 @@ const props = defineProps({
 })
 
 const cartStore = useCartStore()
+const favoriteStore = useFavoriteStore()
+
+const isDetailOpen = ref(false)
+
+const formatPrice = (price) => {
+  return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " so'm"
+}
+
+const openDetails = () => {
+  isDetailOpen.value = true
+}
+
+const closeDetails = () => {
+  isDetailOpen.value = false
+}
+
+const handleAddToCart = () => {
+  cartStore.addToCart(props.item)
+  // Toast xabarini keyingi stepda qo'shamiz
+}
 </script>
 
 <template>
-  <article class="group overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-float transition duration-300 hover:-translate-y-1 hover:shadow-2xl">
-    <div class="relative h-48 overflow-hidden">
-      <img :src="props.item.imageUrl" :alt="props.item.name" class="h-full w-full object-cover transition duration-500 group-hover:scale-110" />
-      <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/55 to-transparent p-4">
-        <span class="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-slate-700">
-          {{ props.item.category }}
-        </span>
+  <div>
+    <!-- Card Wrapper -->
+    <div 
+      @click="openDetails"
+      class="group relative flex flex-col overflow-hidden rounded-[32px] bg-white dark:bg-slate-800 shadow-float transition-all hover:-translate-y-1 hover:shadow-2xl cursor-pointer border border-gray-100 dark:border-slate-700"
+    >
+      <!-- Image Section -->
+      <div class="relative h-56 w-full overflow-hidden">
+        <img 
+          :src="item.imageUrl || item.image" 
+          :alt="item.name" 
+          class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
+        />
+        <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
+        
+        <!-- Like Button -->
+        <button 
+          @click.stop="favoriteStore.toggleLike(item)"
+          class="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-md transition-all hover:scale-110 active:scale-95"
+        >
+          <span :class="favoriteStore.isLiked(item.id) ? 'text-red-500' : 'text-slate-400 dark:text-slate-500'" class="text-xl">
+            {{ favoriteStore.isLiked(item.id) ? '❤️' : '🤍' }}
+          </span>
+        </button>
+      </div>
+
+      <!-- Content Section -->
+      <div class="flex flex-1 flex-col p-6">
+        <div class="mb-2 flex items-start justify-between">
+          <h3 class="text-lg font-black text-slate-900 dark:text-slate-100 line-clamp-1">{{ item.name }}</h3>
+        </div>
+        
+        <p class="mb-4 flex-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-2">
+          {{ item.description }}
+        </p>
+
+        <div class="flex items-center justify-between mt-auto">
+          <div class="flex flex-col">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Narxi</span>
+            <span class="text-lg font-black text-orange-500">{{ formatPrice(item.price) }}</span>
+          </div>
+          
+          <button 
+            @click.stop="handleAddToCart"
+            class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 dark:bg-orange-500 text-white shadow-lg transition-all hover:bg-orange-500 hover:rotate-6 active:scale-90"
+          >
+            <span class="text-xl">🛒</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <div class="space-y-4 p-5">
-      <div class="flex items-start justify-between gap-3">
-        <h3 class="text-lg font-semibold text-slate-900">{{ props.item.name }}</h3>
-        <span class="rounded-full bg-orange-50 px-3 py-1 text-sm font-bold text-orange-600">
-          ${{ props.item.price }}
-        </span>
-      </div>
+    <!-- Feature 1: Product Detail Modal -->
+    <Modal :open="isDetailOpen" @close="closeDetails" maxWidth="max-w-2xl">
+      <div class="flex flex-col md:flex-row h-full bg-white dark:bg-slate-900 overflow-hidden rounded-[32px]">
+        <!-- Modal Image -->
+        <div class="h-64 md:h-auto md:w-1/2 overflow-hidden">
+          <img :src="item.imageUrl || item.image" :alt="item.name" class="h-full w-full object-cover" />
+        </div>
+        
+        <!-- Modal Details -->
+        <div class="flex flex-col p-8 md:w-1/2">
+          <div class="flex-1">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <p class="text-xs font-black uppercase tracking-widest text-orange-500">{{ item.category }}</p>
+                <h2 class="text-3xl font-black text-slate-900 dark:text-white leading-tight">{{ item.name }}</h2>
+              </div>
+            </div>
+            
+            <p class="text-slate-500 dark:text-slate-400 mt-4 leading-relaxed">
+              {{ item.description }}
+            </p>
 
-      <button class="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-orange-500" @click="cartStore.addToCart(props.item)">
-        Add to Cart
-      </button>
-    </div>
-  </article>
+            <div class="mt-8">
+              <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 block mb-1">Narxi</span>
+              <span class="text-4xl font-black text-orange-500">{{ formatPrice(item.price) }}</span>
+            </div>
+          </div>
+
+          <div class="mt-8 flex gap-4">
+            <button 
+              @click="favoriteStore.toggleLike(item)"
+              class="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-800 text-2xl shadow-sm transition-all hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-95"
+            >
+              <span :class="favoriteStore.isLiked(item.id) ? 'text-red-500' : 'text-slate-400 dark:text-slate-500'">
+                {{ favoriteStore.isLiked(item.id) ? '❤️' : '🤍' }}
+              </span>
+            </button>
+            <button 
+              @click="handleAddToCart"
+              class="flex-1 h-16 rounded-3xl bg-slate-900 dark:bg-orange-600 text-white font-black text-lg shadow-xl shadow-slate-200 dark:shadow-none transition-all hover:bg-orange-500 active:scale-95 flex items-center justify-center gap-3"
+            >
+              <span>Savatga qo'shish</span>
+              <span class="text-2xl">🛒</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  </div>
 </template>

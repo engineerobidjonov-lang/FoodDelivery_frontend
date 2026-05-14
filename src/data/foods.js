@@ -1,28 +1,23 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+import { categories, foods } from './mockData'
 
-async function request(path, params = {}) {
-  const searchParams = new URLSearchParams()
+export async function fetchCategories() {
+  return Promise.resolve(categories)
+}
 
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      searchParams.set(key, value)
-    }
-  })
+export async function fetchFoods(filters = {}) {
+  let filteredFoods = [...foods]
 
-  const query = searchParams.toString()
-  const response = await fetch(`${API_BASE_URL}${path}${query ? `?${query}` : ''}`)
-
-  if (!response.ok) {
-    throw new Error(`API request failed with status ${response.status}`)
+  if (filters.category) {
+    filteredFoods = filteredFoods.filter(
+      (f) => f.category.toLowerCase() === filters.category.toLowerCase()
+    )
   }
 
-  return response.json()
-}
+  if (filters.search) {
+    filteredFoods = filteredFoods.filter((f) =>
+      f.name.toLowerCase().includes(filters.search.toLowerCase())
+    )
+  }
 
-export function fetchCategories() {
-  return request('/categories')
-}
-
-export function fetchFoods(filters = {}) {
-  return request('/foods', filters)
+  return Promise.resolve(filteredFoods)
 }
